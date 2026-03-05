@@ -4,64 +4,50 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dip-protocol/dip-cli/internal/validation"
+	signpkg "github.com/dip-protocol/dip-cli/internal/signing"
+	verpkg "github.com/dip-protocol/dip-cli/internal/verify"
 )
-
-func printHelp() {
-	fmt.Println("DIP CLI")
-	fmt.Println("")
-	fmt.Println("Usage:")
-	fmt.Println("  dip <command> [arguments]")
-	fmt.Println("")
-	fmt.Println("Available Commands:")
-	fmt.Println("  validate    Validate a decision record against a schema")
-	fmt.Println("  sign        Sign a decision record (not implemented yet)")
-	fmt.Println("  verify      Verify a signed decision record (not implemented yet)")
-	fmt.Println("")
-	fmt.Println("Examples:")
-	fmt.Println("  dip validate record.json schema.json")
-}
 
 func main() {
 
 	if len(os.Args) < 2 {
-		printHelp()
+		fmt.Println("DIP CLI")
+		fmt.Println("")
+		fmt.Println("Usage:")
+		fmt.Println("  dip sign <record.json>")
+		fmt.Println("  dip verify <record.json> <public-key>")
 		return
 	}
 
-	command := os.Args[1]
+	switch os.Args[1] {
 
-	switch command {
+	case "sign":
 
-	case "validate":
-
-		if len(os.Args) < 4 {
-			fmt.Println("Usage: dip validate <record.json> <schema.json>")
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: dip sign <record.json>")
 			return
 		}
 
-		recordPath := os.Args[2]
-		schemaPath := os.Args[3]
-
-		err := validation.Validate(recordPath, schemaPath)
-
+		err := signpkg.Sign(os.Args[2])
 		if err != nil {
-			fmt.Println("Validation error:", err)
+			fmt.Println("Signing error:", err)
 			os.Exit(1)
 		}
 
-	case "sign":
-		fmt.Println("Sign command not implemented yet")
-
 	case "verify":
-		fmt.Println("Verify command not implemented yet")
 
-	case "help":
-		printHelp()
+		if len(os.Args) < 4 {
+			fmt.Println("Usage: dip verify <record.json> <public-key>")
+			return
+		}
+
+		err := verpkg.Verify(os.Args[2], os.Args[3])
+		if err != nil {
+			fmt.Println("Verification error:", err)
+			os.Exit(1)
+		}
 
 	default:
-		fmt.Println("Unknown command:", command)
-		fmt.Println("")
-		printHelp()
+		fmt.Println("Unknown command")
 	}
 }

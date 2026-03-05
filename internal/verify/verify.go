@@ -40,22 +40,22 @@ func Verify(recordPath string, publicKeyBase64 string) error {
 		return fmt.Errorf("no signature found in record")
 	}
 
-	// decode signature
+	// Decode signature
 	sigBytes, err := base64.StdEncoding.DecodeString(record.Signature.Value)
 	if err != nil {
 		return err
 	}
 
-	// decode public key
+	// Decode public key
 	pubKeyBytes, err := base64.StdEncoding.DecodeString(publicKeyBase64)
 	if err != nil {
 		return err
 	}
 
-	// remove signature before recreating payload
+	// Remove signature before verification
 	record.Signature = nil
 
-	// deterministic payload structure (same as signing)
+	// Create deterministic payload structure
 	payloadStruct := struct {
 		Version    string                 `json:"version"`
 		DecisionID string                 `json:"decision_id"`
@@ -64,12 +64,12 @@ func Verify(recordPath string, publicKeyBase64 string) error {
 		Outputs    map[string]interface{} `json:"outputs"`
 		Metadata   map[string]interface{} `json:"metadata,omitempty"`
 	}{
-		Version:    record.Version,
-		DecisionID: record.DecisionID,
-		Timestamp:  record.Timestamp,
-		Inputs:     record.Inputs,
-		Outputs:    record.Outputs,
-		Metadata:   record.Metadata,
+		record.Version,
+		record.DecisionID,
+		record.Timestamp,
+		record.Inputs,
+		record.Outputs,
+		record.Metadata,
 	}
 
 	payload, err := json.Marshal(payloadStruct)
