@@ -4,22 +4,43 @@ import (
 	"fmt"
 	"os"
 
-	signpkg "github.com/dip-protocol/dip-cli/internal/signing"
-	verpkg "github.com/dip-protocol/dip-cli/internal/verify"
+	publishpkg "github.com/dip-protocol/dip-cli/internal/publish"
+	signpkg "github.com/dip-protocol/dip-cli/internal/sign"
+	valpkg "github.com/dip-protocol/dip-cli/internal/validation"
+	verifypkg "github.com/dip-protocol/dip-cli/internal/verify"
 )
 
 func main() {
 
 	if len(os.Args) < 2 {
 		fmt.Println("DIP CLI")
-		fmt.Println("")
-		fmt.Println("Usage:")
-		fmt.Println("  dip sign <record.json>")
-		fmt.Println("  dip verify <record.json> <public-key>")
+		fmt.Println("Usage: dip <command>")
+		fmt.Println("Commands: validate, sign, verify, publish")
 		return
 	}
 
-	switch os.Args[1] {
+	command := os.Args[1]
+
+	switch command {
+
+	case "validate":
+
+		if len(os.Args) < 4 {
+			fmt.Println("Usage: dip validate <record.json> <schema.json>")
+			return
+		}
+
+		record := os.Args[2]
+		schema := os.Args[3]
+
+		err := valpkg.Validate(record, schema)
+
+		if err != nil {
+			fmt.Println("Validation error:", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("Record is valid according to schema")
 
 	case "sign":
 
@@ -28,22 +49,49 @@ func main() {
 			return
 		}
 
-		err := signpkg.Sign(os.Args[2])
+		record := os.Args[2]
+
+		pub, err := signpkg.Sign(record)
+
 		if err != nil {
-			fmt.Println("Signing error:", err)
+			fmt.Println("Sign error:", err)
 			os.Exit(1)
 		}
 
+		fmt.Println("Record signed successfully")
+		fmt.Println("Public key:", pub)
+
 	case "verify":
 
-		if len(os.Args) < 4 {
-			fmt.Println("Usage: dip verify <record.json> <public-key>")
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: dip verify <record.json>")
 			return
 		}
 
-		err := verpkg.Verify(os.Args[2], os.Args[3])
+		record := os.Args[2]
+
+		err := verifypkg.Verify(record)
+
 		if err != nil {
-			fmt.Println("Verification error:", err)
+			fmt.Println("Signature INVALID:", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("Signature valid")
+
+	case "publish":
+
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: dip publish <record.json>")
+			return
+		}
+
+		record := os.Args[2]
+
+		err := publishpkg.Publish(record)
+
+		if err != nil {
+			fmt.Println("Publish error:", err)
 			os.Exit(1)
 		}
 

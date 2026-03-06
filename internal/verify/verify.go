@@ -4,85 +4,62 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"os"
 )
 
 type Signature struct {
 	Algorithm string `json:"algorithm"`
+	PublicKey string `json:"public_key"`
 	Value     string `json:"value"`
 }
 
-type DecisionRecord struct {
-	Version    string                 `json:"version"`
-	DecisionID string                 `json:"decision_id"`
-	Timestamp  string                 `json:"timestamp"`
-	Inputs     map[string]interface{} `json:"inputs"`
-	Outputs    map[string]interface{} `json:"outputs"`
-	Metadata   map[string]interface{} `json:"metadata,omitempty"`
-	Signature  *Signature             `json:"signature"`
-}
+func Verify(filePath string) error {
 
-func Verify(recordPath string, publicKeyBase64 string) error {
-
-	data, err := os.ReadFile(recordPath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
 
-	var record DecisionRecord
+	var record map[string]interface{}
+
 	err = json.Unmarshal(data, &record)
 	if err != nil {
 		return err
 	}
 
-	if record.Signature == nil {
-		return fmt.Errorf("no signature found in record")
+	sigObj, ok := record["signature"].(map[string]interface{})
+	if !ok {
+		return errors.New("invalid signature format")
 	}
 
-	// Decode signature
-	sigBytes, err := base64.StdEncoding.DecodeString(record.Signature.Value)
+	sig := Signature{
+		Algorithm: sigObj["algorithm"].(string),
+		PublicKey: sigObj["public_key"].(string),
+		Value:     sigObj["value"].(string),
+	}
+
+	delete(record, "signature")
+
+	canonical, err := json.Marshal(record)
 	if err != nil {
 		return err
 	}
 
-	// Decode public key
-	pubKeyBytes, err := base64.StdEncoding.DecodeString(publicKeyBase64)
+	pubKeyBytes, err := base64.StdEncoding.DecodeString(sig.PublicKey)
 	if err != nil {
 		return err
 	}
 
-	// Remove signature before verification
-	record.Signature = nil
-
-	// Create deterministic payload structure
-	payloadStruct := struct {
-		Version    string                 `json:"version"`
-		DecisionID string                 `json:"decision_id"`
-		Timestamp  string                 `json:"timestamp"`
-		Inputs     map[string]interface{} `json:"inputs"`
-		Outputs    map[string]interface{} `json:"outputs"`
-		Metadata   map[string]interface{} `json:"metadata,omitempty"`
-	}{
-		record.Version,
-		record.DecisionID,
-		record.Timestamp,
-		record.Inputs,
-		record.Outputs,
-		record.Metadata,
-	}
-
-	payload, err := json.Marshal(payloadStruct)
+	sigBytes, err := base64.StdEncoding.DecodeString(sig.Value)
 	if err != nil {
 		return err
 	}
 
-	valid := ed25519.Verify(pubKeyBytes, payload, sigBytes)
+	valid := ed25519.Verify(pubKeyBytes, canonical, sigBytes)
 
-	if valid {
-		fmt.Println("Signature valid")
-	} else {
-		fmt.Println("Signature INVALID")
+	if !valid {
+		return errors.New("signature verification failed")
 	}
 
 	return nil
