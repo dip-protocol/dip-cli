@@ -1,0 +1,12 @@
+{
+  "decision_id": "decision-001",
+  "system": "ci-pipeline",
+  "decision": "deploy",
+  "inputs": {
+    "commit": "abc123",
+    "tests": "passed"
+  },
+  "policy": "production_policy_v1",
+  "result": "approved",
+  "timestamp": "2026-03-07T12:00:00Z"
+}
