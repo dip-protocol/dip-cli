@@ -1,0 +1,15 @@
+# build artifacts
+*.exe
+
+# runtime artifacts
+artifact.json
+registry.log
+
+# example artifacts
+examples/*/artifact.json
+examples/*/registry.log
+examples/*/artifacts/
+
+# Go build cache
+bin/
+dist/
