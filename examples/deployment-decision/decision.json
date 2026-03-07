@@ -1,0 +1,8 @@
+{
+  "decision_type": "deployment_approval",
+  "system": "ci-pipeline",
+  "service": "payment-api",
+  "version": "1.4.2",
+  "result": "approved",
+  "timestamp": "2026-03-07T18:00:00Z"
+}
