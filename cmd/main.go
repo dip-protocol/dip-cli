@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -8,9 +9,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"strings"
 
+	"github.com/dip-protocol/dip-cli/internal/proof"
+	"github.com/dip-protocol/dip-cli/internal/verifyproof"
 	"github.com/dip-protocol/dip-go-verifier/verifier"
 )
 
@@ -142,12 +147,142 @@ func verifyArtifact(file string) {
 	}
 }
 
+func generateProof(file string) {
+
+	err := proof.GenerateProof(file, "../../../dip-registry")
+
+	if err != nil {
+		fmt.Println("Proof generation failed:", err)
+		return
+	}
+
+	fmt.Println("Proof generation complete")
+}
+
+func verifyProof(artifact string, proofFile string) {
+
+	err := verifyproof.VerifyProof(artifact, proofFile)
+
+	if err != nil {
+		fmt.Println("Verification failed:", err)
+	}
+}
+
+func bundle(artifact string, proofFile string) {
+
+	bundleFile, err := os.Create("decision.dip")
+	if err != nil {
+		fmt.Println("Bundle creation failed:", err)
+		return
+	}
+
+	defer bundleFile.Close()
+
+	zipWriter := zip.NewWriter(bundleFile)
+	defer zipWriter.Close()
+
+	files := []string{artifact, proofFile}
+
+	for _, file := range files {
+
+		f, err := os.Open(file)
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			return
+		}
+
+		defer f.Close()
+
+		w, err := zipWriter.Create(file)
+		if err != nil {
+			fmt.Println("Error adding file to bundle:", err)
+			return
+		}
+
+		_, err = io.Copy(w, f)
+		if err != nil {
+			fmt.Println("Error writing file to bundle:", err)
+			return
+		}
+	}
+
+	fmt.Println("DIP bundle created: decision.dip")
+}
+
+func verifyBundle(bundle string) {
+
+	reader, err := zip.OpenReader(bundle)
+	if err != nil {
+		fmt.Println("Bundle open failed:", err)
+		return
+	}
+
+	defer reader.Close()
+
+	os.Mkdir("dip_tmp", 0755)
+
+	for _, file := range reader.File {
+
+		path := "dip_tmp/" + file.Name
+
+		rc, err := file.Open()
+		if err != nil {
+			fmt.Println("Bundle read error:", err)
+			return
+		}
+
+		out, err := os.Create(path)
+		if err != nil {
+			fmt.Println("File create error:", err)
+			return
+		}
+
+		io.Copy(out, rc)
+
+		out.Close()
+		rc.Close()
+	}
+
+	artifact := "dip_tmp/artifact.json"
+	proof := "dip_tmp/proof.json"
+
+	err = verifyproof.VerifyProof(artifact, proof)
+
+	if err != nil {
+		fmt.Println("Bundle verification failed:", err)
+		return
+	}
+
+	fmt.Println("DIP bundle verification: VALID")
+
+	os.RemoveAll("dip_tmp")
+}
+
+func testConformance() {
+
+	err := verifyproof.VerifyProof(
+		"../dip-spec/conformance/dip-protocol-v1/artifact.json",
+		"../dip-spec/conformance/dip-protocol-v1/proof.json",
+	)
+
+	if err != nil {
+		fmt.Println("Conformance test failed:", err)
+		return
+	}
+
+	fmt.Println("DIP conformance test: PASS")
+}
+
 func main() {
 
 	if len(os.Args) < 2 {
 		fmt.Println("Usage:")
 		fmt.Println("  dip sign <decision.json>")
-		fmt.Println("  dip verify <artifact.json>")
+		fmt.Println("  dip verify <artifact.json | decision.dip>")
+		fmt.Println("  dip proof <artifact.json>")
+		fmt.Println("  dip verify-proof <artifact.json> <proof.json>")
+		fmt.Println("  dip bundle <artifact.json> <proof.json>")
+		fmt.Println("  dip test-conformance")
 		return
 	}
 
@@ -167,11 +302,48 @@ func main() {
 	case "verify":
 
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: dip verify <artifact.json>")
+			fmt.Println("Usage: dip verify <artifact.json | decision.dip>")
 			return
 		}
 
-		verifyArtifact(os.Args[2])
+		file := os.Args[2]
+
+		if strings.HasSuffix(file, ".dip") {
+			verifyBundle(file)
+		} else {
+			verifyArtifact(file)
+		}
+
+	case "proof":
+
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: dip proof <artifact.json>")
+			return
+		}
+
+		generateProof(os.Args[2])
+
+	case "verify-proof":
+
+		if len(os.Args) < 4 {
+			fmt.Println("Usage: dip verify-proof <artifact.json> <proof.json>")
+			return
+		}
+
+		verifyProof(os.Args[2], os.Args[3])
+
+	case "bundle":
+
+		if len(os.Args) < 4 {
+			fmt.Println("Usage: dip bundle <artifact.json> <proof.json>")
+			return
+		}
+
+		bundle(os.Args[2], os.Args[3])
+
+	case "test-conformance":
+
+		testConformance()
 
 	default:
 

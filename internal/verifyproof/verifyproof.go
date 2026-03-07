@@ -8,22 +8,31 @@ import (
 	"github.com/dip-protocol/dip-cli/internal/merkle"
 )
 
+type Artifact struct {
+	ArtifactID string `json:"artifact_id"`
+}
+
 type Proof struct {
 	ArtifactHash string   `json:"artifact_hash"`
 	ProofPath    []string `json:"proof_path"`
 	Root         string   `json:"root"`
 }
 
-func VerifyProof(artifactFile string, proofFile string) error {
+func VerifyProof(artifactPath string, proofPath string) error {
 
-	data, err := os.ReadFile(artifactFile)
+	artifactData, err := os.ReadFile(artifactPath)
 	if err != nil {
 		return err
 	}
 
-	computedHash := merkle.Hash(data)
+	var artifact Artifact
 
-	proofData, err := os.ReadFile(proofFile)
+	err = json.Unmarshal(artifactData, &artifact)
+	if err != nil {
+		return err
+	}
+
+	proofData, err := os.ReadFile(proofPath)
 	if err != nil {
 		return err
 	}
@@ -35,16 +44,23 @@ func VerifyProof(artifactFile string, proofFile string) error {
 		return err
 	}
 
-	fmt.Println("Computed Artifact Hash:", computedHash)
-	fmt.Println("Proof Artifact Hash:", proof.ArtifactHash)
+	hash := artifact.ArtifactID
 
-	if computedHash != proof.ArtifactHash {
-		fmt.Println("Artifact hash mismatch")
-		return nil
+	for _, sibling := range proof.ProofPath {
+
+		hash = merkle.Combine(hash, sibling)
+
 	}
 
-	fmt.Println("Merkle Root (from proof):", proof.Root)
-	fmt.Println("Proof verification successful")
+	if hash == proof.Root {
+
+		fmt.Println("Proof verification: VALID")
+
+	} else {
+
+		fmt.Println("Proof verification: INVALID")
+
+	}
 
 	return nil
 }

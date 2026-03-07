@@ -1,0 +1,6 @@
+{
+  "protocol": "DIP",
+  "version": "1.0",
+  "artifact": "artifact.json",
+  "proof": "proof.json"
+}

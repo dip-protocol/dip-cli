@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/dip-protocol/dip-cli/internal/merkle"
 )
 
+type Artifact struct {
+	ArtifactID string `json:"artifact_id"`
+}
+
 type LogEntry struct {
-	Artifact string `json:"artifact"`
-	Hash     string `json:"hash"`
+	ArtifactHash string `json:"artifact_hash"`
 }
 
 type Proof struct {
@@ -20,16 +24,21 @@ type Proof struct {
 	Root         string   `json:"root"`
 }
 
-func GenerateProof(artifactPath string) error {
-
-	registryDir := "D:/Conf/dip-registry"
+func GenerateProof(artifactPath string, registryDir string) error {
 
 	data, err := os.ReadFile(artifactPath)
 	if err != nil {
 		return err
 	}
 
-	targetHash := merkle.Hash(data)
+	var artifact Artifact
+
+	err = json.Unmarshal(data, &artifact)
+	if err != nil {
+		return err
+	}
+
+	targetHash := artifact.ArtifactID
 
 	logPath := filepath.Join(registryDir, "log.json")
 
@@ -45,10 +54,19 @@ func GenerateProof(artifactPath string) error {
 		return err
 	}
 
+	var leaves []string
+
+	for _, entry := range log {
+		leaves = append(leaves, entry.ArtifactHash)
+	}
+
+	// Deterministic ordering
+	sort.Strings(leaves)
+
 	index := -1
 
-	for i, entry := range log {
-		if entry.Hash == targetHash {
+	for i, hash := range leaves {
+		if hash == targetHash {
 			index = i
 			break
 		}
@@ -59,42 +77,61 @@ func GenerateProof(artifactPath string) error {
 		return nil
 	}
 
-	var path []string
+	var proofPath []string
 
-	for i, entry := range log {
-		if i != index {
-			path = append(path, entry.Hash)
+	level := leaves
+	pos := index
+
+	for len(level) > 1 {
+
+		var nextLevel []string
+
+		for i := 0; i < len(level); i += 2 {
+
+			left := level[i]
+
+			right := left
+			if i+1 < len(level) {
+				right = level[i+1]
+			}
+
+			parent := merkle.Combine(left, right)
+			nextLevel = append(nextLevel, parent)
+
+			if i == pos || i+1 == pos {
+
+				if pos == i {
+					proofPath = append(proofPath, right)
+				} else {
+					proofPath = append(proofPath, left)
+				}
+
+				pos = len(nextLevel) - 1
+			}
 		}
+
+		level = nextLevel
 	}
 
-	root := ""
-
-	for _, entry := range log {
-
-		if root == "" {
-			root = entry.Hash
-		} else {
-			root = merkle.Combine(root, entry.Hash)
-		}
-
-	}
+	root := level[0]
 
 	proof := Proof{
 		ArtifactHash: targetHash,
-		ProofPath:    path,
+		ProofPath:    proofPath,
 		Root:         root,
 	}
 
-	output, _ := json.MarshalIndent(proof, "", "  ")
-
-	proofFile := "proof.json"
-
-	err = os.WriteFile(proofFile, output, 0644)
+	output, err := json.MarshalIndent(proof, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("Proof generated:", proofFile)
+	err = os.WriteFile("proof.json", output, 0644)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Proof generated: proof.json")
 
 	return nil
 }
