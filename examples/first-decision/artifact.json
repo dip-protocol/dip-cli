@@ -1,0 +1,20 @@
+{
+  "artifact_version": "1.0",
+  "decision": {
+    "decision_id": "decision-001",
+    "system": "ci-pipeline",
+    "decision": "deploy",
+    "inputs": {
+      "commit": "abc123",
+      "tests": "passed"
+    },
+    "policy": "production_policy_v1",
+    "result": "approved",
+    "timestamp": "2026-03-07T12:00:00Z"
+  },
+  "signature": {
+    "algorithm": "ed25519",
+    "public_key": "PLACEHOLDER",
+    "value": "PLACEHOLDER"
+  }
+}
