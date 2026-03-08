@@ -2,9 +2,11 @@ package sign
 
 import (
 	"crypto/ed25519"
-	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 
 	canonical "github.com/dip-protocol/dip-cli/internal/canonical"
@@ -16,7 +18,36 @@ type Signature struct {
 	Value     string `json:"value"`
 }
 
-func Sign(filePath string) (string, error) {
+func loadPrivateKey(path string) (ed25519.PrivateKey, error) {
+
+	keyBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := base64.StdEncoding.DecodeString(string(keyBytes))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(key) != ed25519.PrivateKeySize {
+		return nil, errors.New("invalid ed25519 private key length")
+	}
+
+	return ed25519.PrivateKey(key), nil
+}
+
+// Sign generates a DIP signature for the artifact.
+//
+// Signing procedure defined by the DIP protocol:
+//
+// 1. Remove the signature field
+// 2. Canonicalize artifact
+// 3. Compute artifact_id = SHA256(canonical_bytes)
+// 4. Insert artifact_id
+// 5. Canonicalize again
+// 6. Sign canonical bytes using Ed25519
+func Sign(filePath string, keyPath string) (string, error) {
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -30,22 +61,39 @@ func Sign(filePath string) (string, error) {
 		return "", err
 	}
 
-	// Remove existing signature before signing
+	// Ensure protocol version
+	record["artifact_version"] = "1"
+
+	// Remove existing signature
 	delete(record, "signature")
 
-	// Canonicalize JSON
+	// First canonicalization (without artifact_id)
 	canonicalBytes, err := canonical.Canonicalize(record)
 	if err != nil {
 		return "", err
 	}
 
-	// Generate keypair
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	// Compute artifact_id
+	hash := sha256.Sum256(canonicalBytes)
+	artifactID := hex.EncodeToString(hash[:])
+
+	record["artifact_id"] = artifactID
+
+	// Canonicalize again including artifact_id
+	canonicalBytes, err = canonical.Canonicalize(record)
 	if err != nil {
 		return "", err
 	}
 
-	// Sign canonical bytes
+	// Load signing key
+	privateKey, err := loadPrivateKey(keyPath)
+	if err != nil {
+		return "", err
+	}
+
+	publicKey := privateKey.Public().(ed25519.PublicKey)
+
+	// Sign canonical artifact
 	signatureBytes := ed25519.Sign(privateKey, canonicalBytes)
 
 	sig := Signature{
@@ -54,7 +102,6 @@ func Sign(filePath string) (string, error) {
 		Value:     base64.StdEncoding.EncodeToString(signatureBytes),
 	}
 
-	// Attach signature object
 	record["signature"] = sig
 
 	out, err := json.MarshalIndent(record, "", "  ")

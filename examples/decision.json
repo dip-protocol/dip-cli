@@ -1,0 +1,12 @@
+{
+  "decision_id": "decision-001",
+  "timestamp": "2026-03-08T10:00:00Z",
+  "inputs": {
+    "user_id": "12345",
+    "action": "loan_request"
+  },
+  "outputs": {
+    "approved": true,
+    "limit": 5000
+  }
+}

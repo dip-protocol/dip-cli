@@ -2,10 +2,14 @@ package verify
 
 import (
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
+
+	canonical "github.com/dip-protocol/dip-cli/internal/canonical"
 )
 
 type Signature struct {
@@ -33,17 +37,51 @@ func Verify(filePath string) error {
 		return errors.New("invalid signature format")
 	}
 
-	sig := Signature{
-		Algorithm: sigObj["algorithm"].(string),
-		PublicKey: sigObj["public_key"].(string),
-		Value:     sigObj["value"].(string),
+	algorithm, ok := sigObj["algorithm"].(string)
+	if !ok {
+		return errors.New("invalid signature algorithm")
 	}
 
+	if algorithm != "ed25519" {
+		return errors.New("unsupported signature algorithm")
+	}
+
+	pubKeyStr, ok := sigObj["public_key"].(string)
+	if !ok {
+		return errors.New("invalid public key format")
+	}
+
+	sigStr, ok := sigObj["value"].(string)
+	if !ok {
+		return errors.New("invalid signature format")
+	}
+
+	sig := Signature{
+		Algorithm: algorithm,
+		PublicKey: pubKeyStr,
+		Value:     sigStr,
+	}
+
+	artifactID, ok := record["artifact_id"].(string)
+	if !ok {
+		return errors.New("artifact_id missing")
+	}
+
+	// Remove signature before verification
 	delete(record, "signature")
 
-	canonical, err := json.Marshal(record)
+	// Canonicalize artifact
+	canonicalBytes, err := canonical.Canonicalize(record)
 	if err != nil {
 		return err
+	}
+
+	// Recompute artifact_id
+	hash := sha256.Sum256(canonicalBytes)
+	expectedID := hex.EncodeToString(hash[:])
+
+	if artifactID != expectedID {
+		return errors.New("artifact_id mismatch")
 	}
 
 	pubKeyBytes, err := base64.StdEncoding.DecodeString(sig.PublicKey)
@@ -56,7 +94,7 @@ func Verify(filePath string) error {
 		return err
 	}
 
-	valid := ed25519.Verify(pubKeyBytes, canonical, sigBytes)
+	valid := ed25519.Verify(pubKeyBytes, canonicalBytes, sigBytes)
 
 	if !valid {
 		return errors.New("signature verification failed")

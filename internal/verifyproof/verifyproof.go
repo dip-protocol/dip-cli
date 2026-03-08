@@ -2,6 +2,7 @@ package verifyproof
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -12,10 +13,15 @@ type Artifact struct {
 	ArtifactID string `json:"artifact_id"`
 }
 
+type ProofNode struct {
+	Hash     string `json:"hash"`
+	Position string `json:"position"`
+}
+
 type Proof struct {
-	ArtifactHash string   `json:"artifact_hash"`
-	ProofPath    []string `json:"proof_path"`
-	Root         string   `json:"root"`
+	ArtifactHash string      `json:"artifact_hash"`
+	ProofPath    []ProofNode `json:"proof_path"`
+	Root         string      `json:"root"`
 }
 
 func VerifyProof(artifactPath string, proofPath string) error {
@@ -44,23 +50,35 @@ func VerifyProof(artifactPath string, proofPath string) error {
 		return err
 	}
 
+	if proof.ArtifactHash != artifact.ArtifactID {
+		return errors.New("artifact hash does not match proof")
+	}
+
 	hash := artifact.ArtifactID
 
-	for _, sibling := range proof.ProofPath {
+	for _, node := range proof.ProofPath {
 
-		hash = merkle.Combine(hash, sibling)
+		if node.Position == "left" {
 
+			hash = merkle.Combine(node.Hash, hash)
+
+		} else if node.Position == "right" {
+
+			hash = merkle.Combine(hash, node.Hash)
+
+		} else {
+
+			return errors.New("invalid proof position")
+		}
 	}
 
-	if hash == proof.Root {
-
-		fmt.Println("Proof verification: VALID")
-
-	} else {
+	if hash != proof.Root {
 
 		fmt.Println("Proof verification: INVALID")
-
+		return errors.New("merkle root mismatch")
 	}
+
+	fmt.Println("Proof verification: VALID")
 
 	return nil
 }

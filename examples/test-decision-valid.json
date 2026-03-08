@@ -1,0 +1,11 @@
+{
+  "decision_id": "decision-test-001",
+  "timestamp": "2026-03-08T12:00:00Z",
+  "inputs": {
+    "user": "alice",
+    "action": "deploy"
+  },
+  "outputs": {
+    "approved": true
+  }
+}

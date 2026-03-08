@@ -3,7 +3,7 @@ module github.com/dip-protocol/dip-cli
 go 1.25.0
 
 require (
-	github.com/dip-protocol/dip-go-verifier v1.0.0
+	github.com/dip-protocol/dip-go-verifier v0.0.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 )
 

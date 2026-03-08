@@ -2,6 +2,7 @@ package proof
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,10 +19,15 @@ type LogEntry struct {
 	ArtifactHash string `json:"artifact_hash"`
 }
 
+type ProofNode struct {
+	Hash     string `json:"hash"`
+	Position string `json:"position"`
+}
+
 type Proof struct {
-	ArtifactHash string   `json:"artifact_hash"`
-	ProofPath    []string `json:"proof_path"`
-	Root         string   `json:"root"`
+	ArtifactHash string      `json:"artifact_hash"`
+	ProofPath    []ProofNode `json:"proof_path"`
+	Root         string      `json:"root"`
 }
 
 func GenerateProof(artifactPath string, registryDir string) error {
@@ -73,11 +79,10 @@ func GenerateProof(artifactPath string, registryDir string) error {
 	}
 
 	if index == -1 {
-		fmt.Println("Artifact not found in registry")
-		return nil
+		return errors.New("artifact not found in registry")
 	}
 
-	var proofPath []string
+	var proofPath []ProofNode
 
 	level := leaves
 	pos := index
@@ -101,9 +106,18 @@ func GenerateProof(artifactPath string, registryDir string) error {
 			if i == pos || i+1 == pos {
 
 				if pos == i {
-					proofPath = append(proofPath, right)
+
+					proofPath = append(proofPath, ProofNode{
+						Hash:     right,
+						Position: "right",
+					})
+
 				} else {
-					proofPath = append(proofPath, left)
+
+					proofPath = append(proofPath, ProofNode{
+						Hash:     left,
+						Position: "left",
+					})
 				}
 
 				pos = len(nextLevel) - 1

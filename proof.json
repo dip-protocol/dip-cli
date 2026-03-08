@@ -1,7 +1,18 @@
 {
-  "artifact_hash": "e892d26fe0f074c70fb5772c21fff710f6f99df30cb5b847a53557382cf33119",
+  "artifact_hash": "5015a4436492379b16e3c7e00d4c43174b8dddb9a31d5584b0a3a24dae41e256",
   "proof_path": [
-    "d37e854f306ee07d4868e2e805b5370d68d8bcc3a2f9d248fe414f159d03d81d"
+    {
+      "hash": "5015a4436492379b16e3c7e00d4c43174b8dddb9a31d5584b0a3a24dae41e256",
+      "position": "right"
+    },
+    {
+      "hash": "48b1426c1918f1c1db6edd2970b36a98c2d20c3bfbde2136904d5f7b586cceac",
+      "position": "left"
+    },
+    {
+      "hash": "599cb1d9c8f589160b5557e2d4a7922566363bd7f2b9705e160064a6644141b0",
+      "position": "left"
+    }
   ],
-  "root": "869ae88703af07aa3e7f28c13fb28d32e1cb542587f00ee92931977eb6b94064"
+  "root": "bdcf0fe485037a9649bb8ddea4bd91a8a57852e8d192b0804bd91ad3c66fb6f3"
 }

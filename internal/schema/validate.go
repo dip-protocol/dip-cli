@@ -3,10 +3,15 @@ package schema
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/xeipuuv/gojsonschema"
 )
 
+// ValidateArtifact validates a DIP artifact against a JSON schema.
+//
+// This ensures the artifact structure conforms to the DIP protocol
+// before signing or verification.
 func ValidateArtifact(artifactPath string, schemaPath string) error {
 
 	// Convert Windows paths to forward slash format
@@ -20,24 +25,22 @@ func ValidateArtifact(artifactPath string, schemaPath string) error {
 	schemaLoader := gojsonschema.NewReferenceLoader(schemaURL)
 
 	result, err := gojsonschema.Validate(schemaLoader, artifactLoader)
-
 	if err != nil {
 		return err
 	}
 
 	if result.Valid() {
-
-		fmt.Println("Schema validation successful")
 		return nil
-
-	} else {
-
-		fmt.Println("Schema validation failed:")
-
-		for _, desc := range result.Errors() {
-			fmt.Println("-", desc)
-		}
-
-		return fmt.Errorf("artifact schema invalid")
 	}
+
+	var errors []string
+
+	for _, desc := range result.Errors() {
+		errors = append(errors, desc.String())
+	}
+
+	return fmt.Errorf(
+		"artifact schema validation failed: %s",
+		strings.Join(errors, "; "),
+	)
 }

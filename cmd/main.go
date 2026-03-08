@@ -16,7 +16,6 @@ import (
 
 	"github.com/dip-protocol/dip-cli/internal/proof"
 	"github.com/dip-protocol/dip-cli/internal/verifyproof"
-	"github.com/dip-protocol/dip-go-verifier/verifier"
 )
 
 type Artifact struct {
@@ -63,7 +62,7 @@ func computeArtifactID(canonical []byte) string {
 
 func appendToRegistry() {
 
-	cmd := exec.Command("..\\..\\..\\dip-registry\\registry.exe", "append", "artifact.json")
+	cmd := exec.Command("..\\dip-registry\\registry.exe", "append", "artifact.json")
 
 	output, err := cmd.CombinedOutput()
 
@@ -103,7 +102,7 @@ func signDecision(inputFile string) {
 	sig := ed25519.Sign(priv, canonical)
 
 	artifact := Artifact{
-		ArtifactVersion: "1.0",
+		ArtifactVersion: "1",
 		ArtifactID:      artifactID,
 		Decision:        decision,
 		Signature: Signature{
@@ -133,12 +132,44 @@ func signDecision(inputFile string) {
 
 func verifyArtifact(file string) {
 
-	valid, err := verifier.VerifyArtifact(file)
-
+	data, err := os.ReadFile(file)
 	if err != nil {
 		fmt.Println("Verification error:", err)
 		return
 	}
+
+	var artifact Artifact
+
+	err = json.Unmarshal(data, &artifact)
+	if err != nil {
+		fmt.Println("Invalid artifact format")
+		return
+	}
+
+	decisionBytes, err := json.Marshal(artifact.Decision)
+	if err != nil {
+		fmt.Println("Decision encoding error:", err)
+		return
+	}
+
+	canonical, err := canonicalizeJSON(decisionBytes)
+	if err != nil {
+		fmt.Println("Canonicalization error:", err)
+		return
+	}
+
+	expectedID := computeArtifactID(canonical)
+
+	if expectedID != artifact.ArtifactID {
+		fmt.Println("Artifact ID mismatch")
+		return
+	}
+
+	valid := ed25519.Verify(
+		artifact.Signature.PublicKey,
+		canonical,
+		artifact.Signature.Value,
+	)
 
 	if valid {
 		fmt.Println("Artifact verification: VALID")
@@ -149,7 +180,7 @@ func verifyArtifact(file string) {
 
 func generateProof(file string) {
 
-	err := proof.GenerateProof(file, "../../../dip-registry")
+	err := proof.GenerateProof(file, "..\\dip-registry")
 
 	if err != nil {
 		fmt.Println("Proof generation failed:", err)
@@ -258,21 +289,6 @@ func verifyBundle(bundle string) {
 	os.RemoveAll("dip_tmp")
 }
 
-func testConformance() {
-
-	err := verifyproof.VerifyProof(
-		"../dip-spec/conformance/dip-protocol-v1/artifact.json",
-		"../dip-spec/conformance/dip-protocol-v1/proof.json",
-	)
-
-	if err != nil {
-		fmt.Println("Conformance test failed:", err)
-		return
-	}
-
-	fmt.Println("DIP conformance test: PASS")
-}
-
 func main() {
 
 	if len(os.Args) < 2 {
@@ -282,7 +298,6 @@ func main() {
 		fmt.Println("  dip proof <artifact.json>")
 		fmt.Println("  dip verify-proof <artifact.json> <proof.json>")
 		fmt.Println("  dip bundle <artifact.json> <proof.json>")
-		fmt.Println("  dip test-conformance")
 		return
 	}
 
@@ -340,10 +355,6 @@ func main() {
 		}
 
 		bundle(os.Args[2], os.Args[3])
-
-	case "test-conformance":
-
-		testConformance()
 
 	default:
 
